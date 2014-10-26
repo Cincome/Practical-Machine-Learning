@@ -1,0 +1,117 @@
+---
+title: "Practical Machine Learning Course Project"
+output: html_document
+---
+##Introduction
+This is the course project of the John Hopkins' Practical Machine Learning course through Coursera. In this project, we were tasked with building a model that would predict what form of exercise was done by a participant using only measurements taken at the time of the exercise.
+
+Participants were asked to preform a bicep curl 5 different ways; one using the correct for and another four while making common mistakes in form.  Readings were taken at the arm, forearm, belt, and dumbbell while the exercises were being preformed.  
+The Weight Lifting Exercises Dataset used in this project can be found here: http://groupware.les.inf.puc-rio.br/har#dataset.
+
+
+
+##Load Libraries
+The Caret and Random Forest libraries are used in making the prediction model.  The doMC library is used to allow the computations to be done with parallel processing.
+
+```{r, message=FALSE}
+library(caret)
+library(randomForest)
+library(doMC)
+set.seed(25)
+registerDoMC()
+```
+
+##Download Data
+```{r echo=TRUE}
+dataTestUrl <- "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+download.file(dataTestUrl, "./pml-testing.csv")
+
+dataTrainUrl <- "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+download.file(dataTrainUrl, "./pml-training.csv")
+```
+
+##Read Data into R
+The training and final prediciton data sets are read into R.
+```{r echo=TRUE}
+finalTest <- read.csv("pml-testing.csv",head=TRUE, na.strings=c("NA",""))
+data <- read.csv("pml-training.csv",head=TRUE, na.strings=c("NA",""))
+```
+
+##Remove Missing Data and Not Revelant Columns
+Within the training data set, columns with missing data are removed.  Then the first seven columns are also removed because they are identifying information about the participants and will not aid in creating the prediction model.
+
+```{r echo=TRUE}
+invalid <- apply(data,2,function(x) {sum(is.na(x))})
+newData <- data[,which(invalid == 0)] 
+useless  <- grep("X|user_name|timestamp|new_window|num_window", names(newData))
+newData <- newData[,-useless]
+```
+
+##Create Test/Train Partition for Training Data
+A partition within the training data set is created, with 60% of the data in the train set and 40% in the test set.
+
+```{r echo=TRUE}
+Part <- createDataPartition(y=newData$classe, p=0.6, list=FALSE)
+train <- newData[Part,]
+test <- newData[-Part,]
+```
+
+##Fit a Random Foreset Model to the Training Data
+A Random Forest Model is created using the training data.  The default setting has been modified in order to shorten computing time.
+
+```{r, cache=TRUE echo=TRUE}
+modControl <- trainControl(method='cv',number=5,repeats=1)
+modFit <- train(classe~., data=train, method='rf',preProc = c("center", "scale"), trControl=modControl)
+
+show(modFit$results)
+```
+
+##Use the Model on the Test Data
+The model created is applied to the test data set.
+
+```{r echo=TRUE}
+pred <- predict(modFit, newdata=test)
+```
+
+##Create Confusion Matrix to Measure Out of Sample Error
+A confusion Matrix is made to estimate what the out of sample error will be.
+
+```{r echo=TRUE}
+confusionMatrix(pred, test$classe)
+```
+
+##Pre-process Final Test Submission Data
+The Final Test data is pre-processed using the same steps and the training/test data sets.
+
+```{r echo=TRUE}
+invalid <- apply(finalTest,2,function(x) {sum(is.na(x))})
+finalTest1 <- finalTest[,which(invalid == 0)] 
+useless  <- grep("X|user_name|timestamp|new_window|num_window", names(finalTest))
+realTest <- finalTest1[,-useless]
+```
+
+##Predict Using Final Test Submission Data
+The prediction model is applied to the final test data set.
+
+```{r echo=TRUE}
+predFinal <- predict(modFit$finalModel, newdata=realTest)
+answers <- as.character(predFinal)
+```
+
+##Create Submission Files
+Using the code provided from the assignment, the prediciton for each line of data is saved into its own .txt file.
+
+```{r echo=TRUE}
+pml_write_files = function(x){
+    n = length(x)
+    for(i in 1:n){
+        filename = paste0("problem_id_",i,".txt")
+        write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+    }
+}
+
+pml_write_files(answers)
+```
+
+##Reference 
+Velloso, E.; Bulling, A.; Gellersen, H.; Ugulino, W.; Fuks, H. Qualitative Activity Recognition of Weight Lifting Exercises. Proceedings of 4th International Conference in Cooperation with SIGCHI (Augmented Human '13) . Stuttgart, Germany: ACM SIGCHI, 2013.

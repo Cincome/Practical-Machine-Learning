@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+
+<title></title>
+
+
+
+
+
+<style type="text/css">
+body, td {
+   font-family: sans-serif;
+   background-color: white;
+   font-size: 13px;
+}
+
+body {
+  max-width: 800px;
+  margin: auto;
+  padding: 1em;
+  line-height: 20px;
+}
+
+tt, code, pre {
+   font-family: 'DejaVu Sans Mono', 'Droid Sans Mono', 'Lucida Console', Consolas, Monaco, monospace;
+}
+
+h1 {
+   font-size:2.2em;
+}
+
+h2 {
+   font-size:1.8em;
+}
+
+h3 {
+   font-size:1.4em;
+}
+
+h4 {
+   font-size:1.0em;
+}
+
+h5 {
+   font-size:0.9em;
+}
+
+h6 {
+   font-size:0.8em;
+}
+
+a:visited {
+   color: rgb(50%, 0%, 50%);
+}
+
+pre, img {
+  max-width: 100%;
+}
+
+pre code {
+   display: block; padding: 0.5em;
+}
+
+code {
+  font-size: 92%;
+  border: 1px solid #ccc;
+}
+
+code[class] {
+  background-color: #F8F8F8;
+}
+
+table, td, th {
+  border: none;
+}
+
+blockquote {
+   color:#666666;
+   margin:0;
+   padding-left: 1em;
+   border-left: 0.5em #EEE solid;
+}
+
+hr {
+   height: 0px;
+   border-bottom: none;
+   border-top-width: thin;
+   border-top-style: dotted;
+   border-top-color: #999999;
+}
+
+@media print {
+   * {
+      background: transparent !important;
+      color: black !important;
+      filter:none !important;
+      -ms-filter: none !important;
+   }
+
+   body {
+      font-size:12pt;
+      max-width:100%;
+   }
+
+   a, a:visited {
+      text-decoration: underline;
+   }
+
+   hr {
+      visibility: hidden;
+      page-break-before: always;
+   }
+
+   pre, blockquote {
+      padding-right: 1em;
+      page-break-inside: avoid;
+   }
+
+   tr, img {
+      page-break-inside: avoid;
+   }
+
+   img {
+      max-width: 100% !important;
+   }
+
+   @page :left {
+      margin: 15mm 20mm 15mm 10mm;
+   }
+
+   @page :right {
+      margin: 15mm 10mm 15mm 20mm;
+   }
+
+   p, h2, h3 {
+      orphans: 3; widows: 3;
+   }
+
+   h2, h3 {
+      page-break-after: avoid;
+   }
+}
+</style>
+
+
+
+</head>
+
+<body>
+<p>##Introduction
+This is the course project of the John Hopkins&#39; Practical Machine Learning course through Coursera. In this project, we were tasked with building a model that would predict what form of exercise was done by a participant using only measurements taken at the time of the exercise.</p>
+
+<p>Participants were asked to preform a bicep curl 5 different ways; one using the correct for and another four while making common mistakes in form.  Readings were taken at the arm, forearm, belt, and dumbbell while the exercises were being preformed.<br/>
+The Weight Lifting Exercises Dataset used in this project can be found here: <a href="http://groupware.les.inf.puc-rio.br/har#dataset">http://groupware.les.inf.puc-rio.br/har#dataset</a>.</p>
+
+<p>##Load Libraries
+The Caret and Random Forest libraries are used in making the prediction model.  The doMC library is used to allow the computations to be done with parallel processing.</p>
+
+<pre><code class="r, message=FALSE">library(caret)
+library(randomForest)
+library(doMC)
+set.seed(25)
+registerDoMC()
+</code></pre>
+
+<p>##Download Data</p>
+
+<pre><code class="r echo=TRUE">dataTestUrl &lt;- &quot;http://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv&quot;
+download.file(dataTestUrl, &quot;./pml-testing.csv&quot;)
+
+dataTrainUrl &lt;- &quot;http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv&quot;
+download.file(dataTrainUrl, &quot;./pml-training.csv&quot;)
+</code></pre>
+
+<p>##Read Data into R
+The training and final prediciton data sets are read into R.</p>
+
+<pre><code class="r echo=TRUE">finalTest &lt;- read.csv(&quot;pml-testing.csv&quot;,head=TRUE, na.strings=c(&quot;NA&quot;,&quot;&quot;))
+data &lt;- read.csv(&quot;pml-training.csv&quot;,head=TRUE, na.strings=c(&quot;NA&quot;,&quot;&quot;))
+</code></pre>
+
+<p>##Remove Missing Data and Not Revelant Columns
+Within the training data set, columns with missing data are removed.  Then the first seven columns are also removed because they are identifying information about the participants and will not aid in creating the prediction model.</p>
+
+<pre><code class="r echo=TRUE">invalid &lt;- apply(data,2,function(x) {sum(is.na(x))})
+newData &lt;- data[,which(invalid == 0)] 
+useless  &lt;- grep(&quot;X|user_name|timestamp|new_window|num_window&quot;, names(newData))
+newData &lt;- newData[,-useless]
+</code></pre>
+
+<p>##Create Test/Train Partition for Training Data
+A partition within the training data set is created, with 60% of the data in the train set and 40% in the test set.</p>
+
+<pre><code class="r echo=TRUE">Part &lt;- createDataPartition(y=newData$classe, p=0.6, list=FALSE)
+train &lt;- newData[Part,]
+test &lt;- newData[-Part,]
+</code></pre>
+
+<p>##Fit a Random Foreset Model to the Training Data
+A Random Forest Model is created using the training data.  The default setting has been modified in order to shorten computing time.</p>
+
+<pre><code class="r, cache=TRUE echo=TRUE">modControl &lt;- trainControl(method=&#39;cv&#39;,number=5,repeats=1)
+modFit &lt;- train(classe~., data=train, method=&#39;rf&#39;,preProc = c(&quot;center&quot;, &quot;scale&quot;), trControl=modControl)
+
+show(modFit$results)
+</code></pre>
+
+<p>##Use the Model on the Test Data
+The model created is applied to the test data set.</p>
+
+<pre><code class="r echo=TRUE">pred &lt;- predict(modFit, newdata=test)
+</code></pre>
+
+<p>##Create Confusion Matrix to Measure Out of Sample Error
+A confusion Matrix is made to estimate what the out of sample error will be.</p>
+
+<pre><code class="r echo=TRUE">confusionMatrix(pred, test$classe)
+</code></pre>
+
+<p>##Pre-process Final Test Submission Data
+The Final Test data is pre-processed using the same steps and the training/test data sets.</p>
+
+<pre><code class="r echo=TRUE">invalid &lt;- apply(finalTest,2,function(x) {sum(is.na(x))})
+finalTest1 &lt;- finalTest[,which(invalid == 0)] 
+useless  &lt;- grep(&quot;X|user_name|timestamp|new_window|num_window&quot;, names(finalTest))
+realTest &lt;- finalTest1[,-useless]
+</code></pre>
+
+<p>##Predict Using Final Test Submission Data
+The prediction model is applied to the final test data set.</p>
+
+<pre><code class="r echo=TRUE">predFinal &lt;- predict(modFit$finalModel, newdata=realTest)
+answers &lt;- as.character(predFinal)
+</code></pre>
+
+<p>##Create Submission Files
+Using the code provided from the assignment, the prediciton for each line of data is saved into its own .txt file.</p>
+
+<pre><code class="r echo=TRUE">pml_write_files = function(x){
+    n = length(x)
+    for(i in 1:n){
+        filename = paste0(&quot;problem_id_&quot;,i,&quot;.txt&quot;)
+        write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+    }
+}
+
+pml_write_files(answers)
+</code></pre>
+
+<p>##Reference 
+Velloso, E.; Bulling, A.; Gellersen, H.; Ugulino, W.; Fuks, H. Qualitative Activity Recognition of Weight Lifting Exercises. Proceedings of 4th International Conference in Cooperation with SIGCHI (Augmented Human &#39;13) . Stuttgart, Germany: ACM SIGCHI, 2013.</p>
+
+</body>
+
+</html>

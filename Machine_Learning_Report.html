@@ -63,120 +63,58 @@ if (window.hljs && document.readyState && document.readyState === "complete") {
 <div id="load-libraries" class="section level2">
 <h2>Load Libraries</h2>
 <p>The Caret and Random Forest libraries are used in making the prediction model. The doMC library is used to allow the computations to be done with parallel processing.</p>
-<pre class="r"><code>library(caret)
-library(randomForest)
-library(doMC)
-set.seed(25)
-registerDoMC()</code></pre>
+<p><code>{r, message=FALSE} library(caret) library(randomForest) library(doMC) set.seed(25) registerDoMC()</code></p>
 </div>
 <div id="download-data" class="section level2">
 <h2>Download Data</h2>
-<pre class="r"><code>dataTestUrl &lt;- &quot;http://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv&quot;
-download.file(dataTestUrl, &quot;./pml-testing.csv&quot;)
-
-dataTrainUrl &lt;- &quot;http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv&quot;
-download.file(dataTrainUrl, &quot;./pml-training.csv&quot;)</code></pre>
+<p>```{r} dataTestUrl &lt;- “<a href="http://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv">http://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv</a>” download.file(dataTestUrl, “./pml-testing.csv”)</p>
+<p>dataTrainUrl &lt;- “<a href="http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv">http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv</a>” download.file(dataTrainUrl, “./pml-training.csv”) ```</p>
 </div>
 <div id="read-data-into-r" class="section level2">
 <h2>Read Data into R</h2>
-<p>The training and final prediciton data sets are read into R.</p>
-<pre class="r"><code>finalTest &lt;- read.csv(&quot;pml-testing.csv&quot;,head=TRUE, na.strings=c(&quot;NA&quot;,&quot;&quot;))
-data &lt;- read.csv(&quot;pml-training.csv&quot;,head=TRUE, na.strings=c(&quot;NA&quot;,&quot;&quot;))</code></pre>
+<p>The training and final prediciton data sets are read into R. <code>{r echo=TRUE} finalTest &lt;- read.csv(&quot;pml-testing.csv&quot;,head=TRUE, na.strings=c(&quot;NA&quot;,&quot;&quot;)) data &lt;- read.csv(&quot;pml-training.csv&quot;,head=TRUE, na.strings=c(&quot;NA&quot;,&quot;&quot;))</code></p>
 </div>
 <div id="remove-missing-data-and-not-revelant-columns" class="section level2">
 <h2>Remove Missing Data and Not Revelant Columns</h2>
 <p>Within the training data set, columns with missing data are removed. Then the first seven columns are also removed because they are identifying information about the participants and will not aid in creating the prediction model.</p>
-<pre class="r"><code>invalid &lt;- apply(data,2,function(x) {sum(is.na(x))})
-newData &lt;- data[,which(invalid == 0)] 
-useless  &lt;- grep(&quot;X|user_name|timestamp|new_window|num_window&quot;, names(newData))
-newData &lt;- newData[,-useless]</code></pre>
+<p><code>{r} invalid &lt;- apply(data,2,function(x) {sum(is.na(x))}) newData &lt;- data[,which(invalid == 0)]  useless  &lt;- grep(&quot;X|user_name|timestamp|new_window|num_window&quot;, names(newData)) newData &lt;- newData[,-useless]</code></p>
 </div>
 <div id="create-testtrain-partition-for-training-data" class="section level2">
 <h2>Create Test/Train Partition for Training Data</h2>
 <p>A partition within the training data set is created, with 60% of the data in the train set and 40% in the test set.</p>
-<pre class="r"><code>Part &lt;- createDataPartition(y=newData$classe, p=0.6, list=FALSE)
-train &lt;- newData[Part,]
-test &lt;- newData[-Part,]</code></pre>
+<p><code>{r} Part &lt;- createDataPartition(y=newData$classe, p=0.6, list=FALSE) train &lt;- newData[Part,] test &lt;- newData[-Part,]</code></p>
 </div>
 <div id="fit-a-random-foreset-model-to-the-training-data" class="section level2">
 <h2>Fit a Random Foreset Model to the Training Data</h2>
 <p>A Random Forest Model is created using the training data. The default setting has been modified in order to shorten computing time.</p>
-<pre class="r"><code>modControl &lt;- trainControl(method='cv',number=5,repeats=1)
-modFit &lt;- train(classe~., data=train, method='rf',preProc = c(&quot;center&quot;, &quot;scale&quot;), trControl=modControl)
-
-show(modFit$results)</code></pre>
-<pre><code>##   mtry Accuracy  Kappa AccuracySD  KappaSD
-## 1    2   0.9882 0.9851   0.002571 0.003253
-## 2   27   0.9898 0.9871   0.001824 0.002308
-## 3   52   0.9833 0.9788   0.002235 0.002831</code></pre>
+<p>```{r, cache=TRUE} modControl &lt;- trainControl(method=‘cv’,number=5,repeats=1) modFit &lt;- train(classe~., data=train, method=‘rf’,preProc = c(“center”, “scale”), trControl=modControl)</p>
+<p>show(modFit$results) ```</p>
 </div>
 <div id="use-the-model-on-the-test-data" class="section level2">
 <h2>Use the Model on the Test Data</h2>
 <p>The model created is applied to the test data set.</p>
-<pre class="r"><code>pred &lt;- predict(modFit, newdata=test)</code></pre>
+<p><code>{r} pred &lt;- predict(modFit, newdata=test)</code></p>
 </div>
 <div id="create-confusion-matrix-to-measure-out-of-sample-error" class="section level2">
 <h2>Create Confusion Matrix to Measure Out of Sample Error</h2>
 <p>A confusion Matrix is made to estimate what the out of sample error will be.</p>
-<pre class="r"><code>confusionMatrix(pred, test$classe)</code></pre>
-<pre><code>## Confusion Matrix and Statistics
-## 
-##           Reference
-## Prediction    A    B    C    D    E
-##          A 2229    8    0    0    0
-##          B    1 1502   11    1    1
-##          C    2    8 1353   27    3
-##          D    0    0    4 1254    1
-##          E    0    0    0    4 1437
-## 
-## Overall Statistics
-##                                         
-##                Accuracy : 0.991         
-##                  95% CI : (0.989, 0.993)
-##     No Information Rate : 0.284         
-##     P-Value [Acc &gt; NIR] : &lt;2e-16        
-##                                         
-##                   Kappa : 0.989         
-##  Mcnemar's Test P-Value : NA            
-## 
-## Statistics by Class:
-## 
-##                      Class: A Class: B Class: C Class: D Class: E
-## Sensitivity             0.999    0.989    0.989    0.975    0.997
-## Specificity             0.999    0.998    0.994    0.999    0.999
-## Pos Pred Value          0.996    0.991    0.971    0.996    0.997
-## Neg Pred Value          0.999    0.997    0.998    0.995    0.999
-## Prevalence              0.284    0.193    0.174    0.164    0.184
-## Detection Rate          0.284    0.191    0.172    0.160    0.183
-## Detection Prevalence    0.285    0.193    0.178    0.160    0.184
-## Balanced Accuracy       0.999    0.994    0.991    0.987    0.998</code></pre>
+<p><code>{r} confusionMatrix(pred, test$classe)</code></p>
 </div>
 <div id="pre-process-final-test-submission-data" class="section level2">
 <h2>Pre-process Final Test Submission Data</h2>
 <p>The Final Test data is pre-processed using the same steps and the training/test data sets.</p>
-<pre class="r"><code>invalid &lt;- apply(finalTest,2,function(x) {sum(is.na(x))})
-finalTest1 &lt;- finalTest[,which(invalid == 0)] 
-useless  &lt;- grep(&quot;X|user_name|timestamp|new_window|num_window&quot;, names(finalTest))
-realTest &lt;- finalTest1[,-useless]</code></pre>
+<p><code>{r} invalid &lt;- apply(finalTest,2,function(x) {sum(is.na(x))}) finalTest1 &lt;- finalTest[,which(invalid == 0)]  useless  &lt;- grep(&quot;X|user_name|timestamp|new_window|num_window&quot;, names(finalTest)) realTest &lt;- finalTest1[,-useless]</code></p>
 </div>
 <div id="predict-using-final-test-submission-data" class="section level2">
 <h2>Predict Using Final Test Submission Data</h2>
 <p>The prediction model is applied to the final test data set.</p>
-<pre class="r"><code>predFinal &lt;- predict(modFit$finalModel, newdata=realTest)
-answers &lt;- as.character(predFinal)</code></pre>
+<p><code>{r} predFinal &lt;- predict(modFit$finalModel, newdata=realTest) answers &lt;- as.character(predFinal)</code></p>
 </div>
 <div id="create-submission-files" class="section level2">
 <h2>Create Submission Files</h2>
 <p>Using the code provided from the assignment, the prediciton for each line of data is saved into its own .txt file.</p>
-<pre class="r"><code>pml_write_files = function(x){
-    n = length(x)
-    for(i in 1:n){
-        filename = paste0(&quot;problem_id_&quot;,i,&quot;.txt&quot;)
-        write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
-    }
-}
-
-pml_write_files(answers)</code></pre>
+<p>```{r} pml_write_files = function(x){ n = length(x) for(i in 1:n){ filename = paste0(“problem_id_”,i,“.txt”) write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE) } }</p>
+<p>pml_write_files(answers) ```</p>
 </div>
 <div id="reference" class="section level2">
 <h2>Reference</h2>
