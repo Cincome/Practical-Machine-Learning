@@ -22,7 +22,7 @@ registerDoMC()
 ```
 
 ##Download Data
-```{r echo=TRUE}
+```{r}
 dataTestUrl <- "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
 download.file(dataTestUrl, "./pml-testing.csv")
 
@@ -40,7 +40,7 @@ data <- read.csv("pml-training.csv",head=TRUE, na.strings=c("NA",""))
 ##Remove Missing Data and Not Revelant Columns
 Within the training data set, columns with missing data are removed.  Then the first seven columns are also removed because they are identifying information about the participants and will not aid in creating the prediction model.
 
-```{r echo=TRUE}
+```{r}
 invalid <- apply(data,2,function(x) {sum(is.na(x))})
 newData <- data[,which(invalid == 0)] 
 useless  <- grep("X|user_name|timestamp|new_window|num_window", names(newData))
@@ -50,7 +50,7 @@ newData <- newData[,-useless]
 ##Create Test/Train Partition for Training Data
 A partition within the training data set is created, with 60% of the data in the train set and 40% in the test set.
 
-```{r echo=TRUE}
+```{r}
 Part <- createDataPartition(y=newData$classe, p=0.6, list=FALSE)
 train <- newData[Part,]
 test <- newData[-Part,]
@@ -59,7 +59,7 @@ test <- newData[-Part,]
 ##Fit a Random Foreset Model to the Training Data
 A Random Forest Model is created using the training data.  The default setting has been modified in order to shorten computing time.
 
-```{r, cache=TRUE echo=TRUE}
+```{r, cache=TRUE}
 modControl <- trainControl(method='cv',number=5,repeats=1)
 modFit <- train(classe~., data=train, method='rf',preProc = c("center", "scale"), trControl=modControl)
 
@@ -69,21 +69,21 @@ show(modFit$results)
 ##Use the Model on the Test Data
 The model created is applied to the test data set.
 
-```{r echo=TRUE}
+```{r}
 pred <- predict(modFit, newdata=test)
 ```
 
 ##Create Confusion Matrix to Measure Out of Sample Error
 A confusion Matrix is made to estimate what the out of sample error will be.
 
-```{r echo=TRUE}
+```{r}
 confusionMatrix(pred, test$classe)
 ```
 
 ##Pre-process Final Test Submission Data
 The Final Test data is pre-processed using the same steps and the training/test data sets.
 
-```{r echo=TRUE}
+```{r}
 invalid <- apply(finalTest,2,function(x) {sum(is.na(x))})
 finalTest1 <- finalTest[,which(invalid == 0)] 
 useless  <- grep("X|user_name|timestamp|new_window|num_window", names(finalTest))
@@ -93,7 +93,7 @@ realTest <- finalTest1[,-useless]
 ##Predict Using Final Test Submission Data
 The prediction model is applied to the final test data set.
 
-```{r echo=TRUE}
+```{r}
 predFinal <- predict(modFit$finalModel, newdata=realTest)
 answers <- as.character(predFinal)
 ```
@@ -101,7 +101,7 @@ answers <- as.character(predFinal)
 ##Create Submission Files
 Using the code provided from the assignment, the prediciton for each line of data is saved into its own .txt file.
 
-```{r echo=TRUE}
+```{r}
 pml_write_files = function(x){
     n = length(x)
     for(i in 1:n){
